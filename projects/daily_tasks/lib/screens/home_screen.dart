@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/task_card.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -77,17 +78,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   : ListView.builder(
                       itemCount: tasks.length,
                       itemBuilder: (context, index) {
-                        return Card(
-                          child: ListTile(
-                            title: Text(tasks[index]),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.delete),
-                              onPressed: () {
-                                deleteTask(index);
-                              },
-                            ),
-                          ),
-                        );
+                        return TaskCard(
+  title: tasks[index],
+  onDelete: () {
+    deleteTask(index);
+  },
+);
                       },
                     ),
             ),

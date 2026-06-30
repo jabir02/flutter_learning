@@ -24,4 +24,4 @@ I am learning Flutter with prior programming knowledge, but starting fresh with 
 flutter_learning/
   projects/
     daily_tasks/
-EOFf
+
