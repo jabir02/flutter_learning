@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../models/task.dart';
 import '../widgets/task_card.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -11,7 +13,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController taskController = TextEditingController();
 
-  final List<String> tasks = [];
+  final List<Task> tasks = [];
 
   void addTask() {
     final String taskText = taskController.text.trim();
@@ -20,8 +22,13 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
+    final Task newTask = Task(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      title: taskText,
+    );
+
     setState(() {
-      tasks.add(taskText);
+      tasks.add(newTask);
       taskController.clear();
     });
   }
@@ -29,6 +36,18 @@ class _HomeScreenState extends State<HomeScreen> {
   void deleteTask(int index) {
     setState(() {
       tasks.removeAt(index);
+    });
+  }
+
+  void toggleTask(int index) {
+    final Task oldTask = tasks[index];
+
+    final Task updatedTask = oldTask.copyWith(
+      isCompleted: !oldTask.isCompleted,
+    );
+
+    setState(() {
+      tasks[index] = updatedTask;
     });
   }
 
@@ -79,11 +98,14 @@ class _HomeScreenState extends State<HomeScreen> {
                       itemCount: tasks.length,
                       itemBuilder: (context, index) {
                         return TaskCard(
-  title: tasks[index],
-  onDelete: () {
-    deleteTask(index);
-  },
-);
+                          task: tasks[index],
+                          onToggle: () {
+                            toggleTask(index);
+                          },
+                          onDelete: () {
+                            deleteTask(index);
+                          },
+                        );
                       },
                     ),
             ),
