@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/task.dart';
 import '../widgets/task_card.dart';
@@ -11,11 +14,64 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  static const String tasksStorageKey = 'daily_tasks';
+
   final TextEditingController taskController = TextEditingController();
 
-  final List<Task> tasks = [];
+  List<Task> tasks = [];
+  bool isLoading = true;
 
-  void addTask() {
+  @override
+  void initState() {
+    super.initState();
+    loadTasks();
+  }
+
+  Future<void> loadTasks() async {
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+
+      final List<String> savedTasks =
+          prefs.getStringList(tasksStorageKey) ?? [];
+
+      final List<Task> loadedTasks = savedTasks.map((taskString) {
+        final Map<String, dynamic> taskMap =
+            jsonDecode(taskString) as Map<String, dynamic>;
+
+        return Task.fromJson(taskMap);
+      }).toList();
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        tasks = loadedTasks;
+        isLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        tasks = [];
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> saveTasks() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    final List<String> taskStrings = tasks.map((task) {
+      return jsonEncode(task.toJson());
+    }).toList();
+
+    await prefs.setStringList(tasksStorageKey, taskStrings);
+  }
+
+  Future<void> addTask() async {
     final String taskText = taskController.text.trim();
 
     if (taskText.isEmpty) {
@@ -31,15 +87,19 @@ class _HomeScreenState extends State<HomeScreen> {
       tasks.add(newTask);
       taskController.clear();
     });
+
+    await saveTasks();
   }
 
-  void deleteTask(int index) {
+  Future<void> deleteTask(int index) async {
     setState(() {
       tasks.removeAt(index);
     });
+
+    await saveTasks();
   }
 
-  void toggleTask(int index) {
+  Future<void> toggleTask(int index) async {
     final Task oldTask = tasks[index];
 
     final Task updatedTask = oldTask.copyWith(
@@ -49,6 +109,8 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       tasks[index] = updatedTask;
     });
+
+    await saveTasks();
   }
 
   @override
@@ -65,52 +127,56 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            TextField(
-              controller: taskController,
-              decoration: const InputDecoration(
-                labelText: 'Task title',
-                border: OutlineInputBorder(),
-              ),
-              onSubmitted: (_) {
-                addTask();
-              },
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: addTask,
-                child: const Text('Add Task'),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Expanded(
-              child: tasks.isEmpty
-                  ? const Center(
-                      child: Text(
-                        'No tasks yet',
-                        style: TextStyle(fontSize: 20),
-                      ),
-                    )
-                  : ListView.builder(
-                      itemCount: tasks.length,
-                      itemBuilder: (context, index) {
-                        return TaskCard(
-                          task: tasks[index],
-                          onToggle: () {
-                            toggleTask(index);
-                          },
-                          onDelete: () {
-                            deleteTask(index);
-                          },
-                        );
-                      },
+        child: isLoading
+            ? const Center(
+                child: CircularProgressIndicator(),
+              )
+            : Column(
+                children: [
+                  TextField(
+                    controller: taskController,
+                    decoration: const InputDecoration(
+                      labelText: 'Task title',
+                      border: OutlineInputBorder(),
                     ),
-            ),
-          ],
-        ),
+                    onSubmitted: (_) {
+                      addTask();
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: addTask,
+                      child: const Text('Add Task'),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Expanded(
+                    child: tasks.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'No tasks yet',
+                              style: TextStyle(fontSize: 20),
+                            ),
+                          )
+                        : ListView.builder(
+                            itemCount: tasks.length,
+                            itemBuilder: (context, index) {
+                              return TaskCard(
+                                task: tasks[index],
+                                onToggle: () {
+                                  toggleTask(index);
+                                },
+                                onDelete: () {
+                                  deleteTask(index);
+                                },
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
       ),
     );
   }
