@@ -1,11 +1,16 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/task.dart';
+import '../services/task_storage_service.dart';
+import '../widgets/empty_state.dart';
 import '../widgets/task_card.dart';
-import 'add_task_screen.dart';
+import 'add_edit_task_screen.dart';
+
+enum TaskFilter {
+  all,
+  active,
+  completed,
+}
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -15,81 +20,68 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  static const String tasksStorageKey = 'daily_tasks';
+  final TaskStorageService taskStorageService = TaskStorageService();
 
   List<Task> tasks = [];
+  TaskFilter selectedFilter = TaskFilter.all;
   bool isLoading = true;
+
+  int get totalCount => tasks.length;
+
+  int get completedCount {
+    return tasks.where((task) => task.isCompleted).length;
+  }
+
+  int get activeCount {
+    return tasks.where((task) => !task.isCompleted).length;
+  }
+
+  List<Task> get filteredTasks {
+    switch (selectedFilter) {
+      case TaskFilter.active:
+        return tasks.where((task) => !task.isCompleted).toList();
+      case TaskFilter.completed:
+        return tasks.where((task) => task.isCompleted).toList();
+      case TaskFilter.all:
+        return tasks;
+    }
+  }
 
   @override
   void initState() {
     super.initState();
+
     loadTasks();
   }
 
   Future<void> loadTasks() async {
-    try {
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final List<Task> loadedTasks = await taskStorageService.loadTasks();
 
-      final List<String> savedTasks =
-          prefs.getStringList(tasksStorageKey) ?? [];
-
-      final List<Task> loadedTasks = savedTasks.map((taskString) {
-        final Map<String, dynamic> taskMap =
-            jsonDecode(taskString) as Map<String, dynamic>;
-
-        return Task.fromJson(taskMap);
-      }).toList();
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        tasks = loadedTasks;
-        isLoading = false;
-      });
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        tasks = [];
-        isLoading = false;
-      });
-    }
-  }
-
-  Future<void> saveTasks() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    final List<String> taskStrings = tasks.map((task) {
-      return jsonEncode(task.toJson());
-    }).toList();
-
-    await prefs.setStringList(tasksStorageKey, taskStrings);
-  }
-
-  Future<void> openAddTaskScreen() async {
-    final String? taskTitle = await Navigator.push<String>(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const AddTaskScreen(),
-      ),
-    );
-
-    if (taskTitle == null) {
+    if (!mounted) {
       return;
     }
 
-    await addTask(taskTitle);
+    setState(() {
+      tasks = loadedTasks;
+      isLoading = false;
+    });
   }
 
-  Future<void> addTask(String taskTitle) async {
-    final Task newTask = Task(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      title: taskTitle,
+  Future<void> saveTasks() async {
+    await taskStorageService.saveTasks(tasks);
+  }
+
+  Future<void> openAddTaskScreen() async {
+    final Task? newTask = await Navigator.push<Task>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const AddEditTaskScreen(),
+      ),
     );
+
+    if (newTask == null) {
+      return;
+    }
 
     setState(() {
       tasks.add(newTask);
@@ -98,20 +90,25 @@ class _HomeScreenState extends State<HomeScreen> {
     await saveTasks();
   }
 
-  Future<void> deleteTask(int index) async {
-    setState(() {
-      tasks.removeAt(index);
+  Future<void> openEditTaskScreen(Task task) async {
+    final Task? updatedTask = await Navigator.push<Task>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddEditTaskScreen(task: task),
+      ),
+    );
+
+    if (updatedTask == null) {
+      return;
+    }
+
+    final int index = tasks.indexWhere((currentTask) {
+      return currentTask.id == updatedTask.id;
     });
 
-    await saveTasks();
-  }
-
-  Future<void> toggleTask(int index) async {
-    final Task oldTask = tasks[index];
-
-    final Task updatedTask = oldTask.copyWith(
-      isCompleted: !oldTask.isCompleted,
-    );
+    if (index == -1) {
+      return;
+    }
 
     setState(() {
       tasks[index] = updatedTask;
@@ -120,39 +117,243 @@ class _HomeScreenState extends State<HomeScreen> {
     await saveTasks();
   }
 
+  Future<void> toggleTask(Task task) async {
+    final int index = tasks.indexWhere((currentTask) {
+      return currentTask.id == task.id;
+    });
+
+    if (index == -1) {
+      return;
+    }
+
+    setState(() {
+      tasks[index] = task.copyWith(
+        isCompleted: !task.isCompleted,
+      );
+    });
+
+    await saveTasks();
+  }
+
+  Future<void> deleteTask(Task task) async {
+    final bool shouldDelete = await showDialog<bool>(
+          context: context,
+          builder: (context) {
+            return AlertDialog(
+              title: const Text('Delete task?'),
+              content: Text('Are you sure you want to delete "${task.title}"?'),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context, false);
+                  },
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    Navigator.pop(context, true);
+                  },
+                  child: const Text('Delete'),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    setState(() {
+      tasks.removeWhere((currentTask) {
+        return currentTask.id == task.id;
+      });
+    });
+
+    await saveTasks();
+  }
+
+  Future<void> clearCompletedTasks() async {
+    if (completedCount == 0) {
+      return;
+    }
+
+    final bool shouldClear = await showDialog<bool>(
+          context: context,
+          builder: (context) {
+            return AlertDialog(
+              title: const Text('Clear completed tasks?'),
+              content: const Text(
+                'This will remove all completed tasks from the list.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context, false);
+                  },
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    Navigator.pop(context, true);
+                  },
+                  child: const Text('Clear'),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
+
+    if (!shouldClear) {
+      return;
+    }
+
+    setState(() {
+      tasks.removeWhere((task) {
+        return task.isCompleted;
+      });
+    });
+
+    await saveTasks();
+  }
+
+  Widget buildStatsCard() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Expanded(
+              child: buildStatItem(
+                label: 'Total',
+                value: totalCount.toString(),
+              ),
+            ),
+            Expanded(
+              child: buildStatItem(
+                label: 'Active',
+                value: activeCount.toString(),
+              ),
+            ),
+            Expanded(
+              child: buildStatItem(
+                label: 'Done',
+                value: completedCount.toString(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget buildStatItem({
+    required String label,
+    required String value,
+  }) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: Theme.of(context).textTheme.headlineSmall,
+        ),
+        const SizedBox(height: 4),
+        Text(label),
+      ],
+    );
+  }
+
+  Widget buildFilterBar() {
+    return SegmentedButton<TaskFilter>(
+      segments: const [
+        ButtonSegment<TaskFilter>(
+          value: TaskFilter.all,
+          label: Text('All'),
+        ),
+        ButtonSegment<TaskFilter>(
+          value: TaskFilter.active,
+          label: Text('Active'),
+        ),
+        ButtonSegment<TaskFilter>(
+          value: TaskFilter.completed,
+          label: Text('Done'),
+        ),
+      ],
+      selected: {selectedFilter},
+      onSelectionChanged: (Set<TaskFilter> selected) {
+        setState(() {
+          selectedFilter = selected.first;
+        });
+      },
+    );
+  }
+
+  Widget buildTaskList() {
+    if (isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+
+    if (filteredTasks.isEmpty) {
+      return EmptyState(
+        title: 'No tasks found',
+        message: selectedFilter == TaskFilter.all
+            ? 'Tap the plus button to add your first task.'
+            : 'There are no tasks in this filter.',
+      );
+    }
+
+    return ListView.builder(
+      itemCount: filteredTasks.length,
+      itemBuilder: (context, index) {
+        final Task task = filteredTasks[index];
+
+        return TaskCard(
+          task: task,
+          onToggle: () {
+            toggleTask(task);
+          },
+          onEdit: () {
+            openEditTaskScreen(task);
+          },
+          onDelete: () {
+            deleteTask(task);
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Daily Tasks'),
+        actions: [
+          if (completedCount > 0)
+            IconButton(
+              tooltip: 'Clear completed',
+              onPressed: clearCompletedTasks,
+              icon: const Icon(Icons.cleaning_services),
+            ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: isLoading
-            ? const Center(
-                child: CircularProgressIndicator(),
-              )
-            : tasks.isEmpty
-                ? const Center(
-                    child: Text(
-                      'No tasks yet',
-                      style: TextStyle(fontSize: 20),
-                    ),
-                  )
-                : ListView.builder(
-                    itemCount: tasks.length,
-                    itemBuilder: (context, index) {
-                      return TaskCard(
-                        task: tasks[index],
-                        onToggle: () {
-                          toggleTask(index);
-                        },
-                        onDelete: () {
-                          deleteTask(index);
-                        },
-                      );
-                    },
-                  ),
+        child: Column(
+          children: [
+            buildStatsCard(),
+            const SizedBox(height: 12),
+            buildFilterBar(),
+            const SizedBox(height: 12),
+            Expanded(
+              child: buildTaskList(),
+            ),
+          ],
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: openAddTaskScreen,

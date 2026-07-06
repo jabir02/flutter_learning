@@ -12,12 +12,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Daily Tasks'), findsOneWidget);
-    expect(find.text('No tasks yet'), findsOneWidget);
+    expect(find.text('No tasks found'), findsOneWidget);
     expect(find.byIcon(Icons.add), findsOneWidget);
+    expect(find.text('Total'), findsOneWidget);
+    expect(find.text('Active'), findsOneWidget);
+    expect(find.text('Done'), findsOneWidget);
   });
 
-  testWidgets('User can add a task from add task screen',
-      (WidgetTester tester) async {
+  testWidgets('User can add a task', (WidgetTester tester) async {
     SharedPreferences.setMockInitialValues({});
 
     await tester.pumpWidget(const DailyTasksApp());
