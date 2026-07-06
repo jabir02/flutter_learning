@@ -1,24 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'screens/home_screen.dart';
+import 'app/tasknest_app.dart';
 
 void main() {
-  runApp(const DailyTasksApp());
+  WidgetsFlutterBinding.ensureInitialized();
+
+  runApp(const DailyTasksAppBootstrap());
 }
 
-class DailyTasksApp extends StatelessWidget {
-  const DailyTasksApp({super.key});
+class DailyTasksAppBootstrap extends StatelessWidget {
+  const DailyTasksAppBootstrap({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Daily Tasks',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorSchemeSeed: Colors.blue,
-        useMaterial3: true,
-      ),
-      home: const HomeScreen(),
+    return const ProviderScope(
+      child: TaskNestApp(),
     );
   }
 }

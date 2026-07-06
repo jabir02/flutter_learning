@@ -5,13 +5,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/task.dart';
 
 class TaskStorageService {
-  static const String _tasksKey = 'daily_tasks';
+  static const String _tasksKey = 'tasknest_tasks';
 
   Future<List<Task>> loadTasks() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
 
     final List<String> savedTaskStrings = prefs.getStringList(_tasksKey) ?? [];
-
     final List<Task> loadedTasks = [];
 
     for (final String taskString in savedTaskStrings) {
