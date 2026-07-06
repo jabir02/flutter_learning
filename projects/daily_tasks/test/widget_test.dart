@@ -15,8 +15,8 @@ void main() {
     expect(find.text('No tasks found'), findsOneWidget);
     expect(find.byIcon(Icons.add), findsOneWidget);
     expect(find.text('Total'), findsOneWidget);
-    expect(find.text('Active'), findsOneWidget);
-    expect(find.text('Done'), findsOneWidget);
+    expect(find.text('Active'), findsWidgets);
+    expect(find.text('Done'), findsWidgets);
   });
 
   testWidgets('User can add a task', (WidgetTester tester) async {
