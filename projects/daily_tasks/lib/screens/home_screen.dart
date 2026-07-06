@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/task.dart';
 import '../widgets/task_card.dart';
+import 'add_task_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -15,8 +16,6 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   static const String tasksStorageKey = 'daily_tasks';
-
-  final TextEditingController taskController = TextEditingController();
 
   List<Task> tasks = [];
   bool isLoading = true;
@@ -71,21 +70,29 @@ class _HomeScreenState extends State<HomeScreen> {
     await prefs.setStringList(tasksStorageKey, taskStrings);
   }
 
-  Future<void> addTask() async {
-    final String taskText = taskController.text.trim();
+  Future<void> openAddTaskScreen() async {
+    final String? taskTitle = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const AddTaskScreen(),
+      ),
+    );
 
-    if (taskText.isEmpty) {
+    if (taskTitle == null) {
       return;
     }
 
+    await addTask(taskTitle);
+  }
+
+  Future<void> addTask(String taskTitle) async {
     final Task newTask = Task(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
-      title: taskText,
+      title: taskTitle,
     );
 
     setState(() {
       tasks.add(newTask);
-      taskController.clear();
     });
 
     await saveTasks();
@@ -114,12 +121,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   @override
-  void dispose() {
-    taskController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -131,52 +132,31 @@ class _HomeScreenState extends State<HomeScreen> {
             ? const Center(
                 child: CircularProgressIndicator(),
               )
-            : Column(
-                children: [
-                  TextField(
-                    controller: taskController,
-                    decoration: const InputDecoration(
-                      labelText: 'Task title',
-                      border: OutlineInputBorder(),
+            : tasks.isEmpty
+                ? const Center(
+                    child: Text(
+                      'No tasks yet',
+                      style: TextStyle(fontSize: 20),
                     ),
-                    onSubmitted: (_) {
-                      addTask();
+                  )
+                : ListView.builder(
+                    itemCount: tasks.length,
+                    itemBuilder: (context, index) {
+                      return TaskCard(
+                        task: tasks[index],
+                        onToggle: () {
+                          toggleTask(index);
+                        },
+                        onDelete: () {
+                          deleteTask(index);
+                        },
+                      );
                     },
                   ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: addTask,
-                      child: const Text('Add Task'),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Expanded(
-                    child: tasks.isEmpty
-                        ? const Center(
-                            child: Text(
-                              'No tasks yet',
-                              style: TextStyle(fontSize: 20),
-                            ),
-                          )
-                        : ListView.builder(
-                            itemCount: tasks.length,
-                            itemBuilder: (context, index) {
-                              return TaskCard(
-                                task: tasks[index],
-                                onToggle: () {
-                                  toggleTask(index);
-                                },
-                                onDelete: () {
-                                  deleteTask(index);
-                                },
-                              );
-                            },
-                          ),
-                  ),
-                ],
-              ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: openAddTaskScreen,
+        child: const Icon(Icons.add),
       ),
     );
   }

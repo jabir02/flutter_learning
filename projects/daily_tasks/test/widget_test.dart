@@ -13,18 +13,26 @@ void main() {
 
     expect(find.text('Daily Tasks'), findsOneWidget);
     expect(find.text('No tasks yet'), findsOneWidget);
+    expect(find.byIcon(Icons.add), findsOneWidget);
   });
 
-  testWidgets('User can add a task', (WidgetTester tester) async {
+  testWidgets('User can add a task from add task screen',
+      (WidgetTester tester) async {
     SharedPreferences.setMockInitialValues({});
 
     await tester.pumpWidget(const DailyTasksApp());
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(EditableText), 'Learn Flutter');
-    await tester.tap(find.text('Add Task'));
+    await tester.tap(find.byIcon(Icons.add));
     await tester.pumpAndSettle();
 
+    expect(find.text('Add Task'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'Learn Flutter');
+    await tester.tap(find.text('Save Task'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Daily Tasks'), findsOneWidget);
     expect(find.text('Learn Flutter'), findsOneWidget);
   });
 }
