@@ -281,21 +281,13 @@ build/app/outputs/flutter-apk/app-release.apk
 
 ---
 
-## Release
+## Releases
 
-The APK should be uploaded through GitHub Releases instead of being committed into the repository.
+TaskNest v0.1.0 is available here:
 
-Recommended release tag:
+[Download TaskNest v0.1.0](https://github.com/jabir02/flutter_learning/releases/tag/tasknest-v0.1.0)
 
-```text
-tasknest-v0.1.0
-```
-
-Recommended release title:
-
-```text
-TaskNest v0.1.0
-```
+The Android APK is attached to the GitHub Release page.
 
 ---
 

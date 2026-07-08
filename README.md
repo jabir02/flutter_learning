@@ -185,18 +185,11 @@ Compiled APK files should not be committed into this repository. They should be 
 
 ## Releases
 
-TaskNest release APK should be available from the GitHub Releases section.
+TaskNest v0.1.0 is available here:
 
-Recommended release tag:
+[Download TaskNest v0.1.0](https://github.com/jabir02/flutter_learning/releases/tag/tasknest-v0.1.0)
 
-```text
-tasknest-v0.1.0
-```
-
-Recommended release title:
-
-```text
-TaskNest v0.1.0
+The Android APK is attached to the GitHub Release page.
 ```
 
 ## Why This Repository Exists
